@@ -13,9 +13,253 @@ public class Algorithms {
 	//TODO Drake Equation Denominator
 	//TODO Sieve of Eratosthenes, solve for nth Prime
 	
-	public static String longToChinese(long num) {
-		
-		return null;
+
+	public static long chineseToLong(String s) {
+		s = s.replaceAll(" +", "");
+		if(s.contains("〇"))
+			s = s.replaceAll("〇", "零");
+		if(s.contains("壱"))
+			s = s.replaceAll("壱", "一");
+		if(s.contains("壹"))
+			s = s.replaceAll("壹", "一");
+		if(s.contains("弐"))
+			s = s.replaceAll("弐", "二");
+		if(s.contains("贰"))
+			s = s.replaceAll("贰", "二");
+		if(s.contains("貳"))
+			s = s.replaceAll("貳", "二");
+		if(s.contains("兩"))
+			s = s.replaceAll("兩", "二");
+		if(s.contains("参"))
+			s = s.replaceAll("参", "三");
+		if(s.contains("叁"))
+			s = s.replaceAll("叁", "三");
+		if(s.contains("參"))
+			s = s.replaceAll("參", "三");
+		if(s.contains("肆"))
+			s = s.replaceAll("肆", "四");
+		if(s.contains("伍"))
+			s = s.replaceAll("伍", "五");
+		if(s.contains("陆"))
+			s = s.replaceAll("陆", "六");
+		if(s.contains("陸"))
+			s = s.replaceAll("陸", "六");
+		if(s.contains("柒"))
+			s = s.replaceAll("柒", "七");
+		if(s.contains("捌"))
+			s = s.replaceAll("捌", "八");
+		if(s.contains("玖"))
+			s = s.replaceAll("玖", "九");
+		if(s.contains("拾"))
+			s = s.replaceAll("拾", "十");
+		if(s.contains("萬"))
+			s = s.replaceAll("萬", "万");
+		if(s.contains("亿"))
+			s = s.replaceAll("亿", "億");
+		if(!s.matches("^[負零一二三四五六七八九十百千万億兆京]+$"))
+			throw new NumberFormatException("Contains non-Chinese numeral characters");
+		if(s.equals("零"))
+			return 0;
+		else if(s.contains("零"))
+			s = s.replaceAll("零", "");
+		boolean negative = false;
+		if(s.contains("負")) {
+			negative = true;
+			s = s.replaceAll("負", "");
+		}
+		long num = 0;
+		if(s.contains("京")) {
+			int index = s.indexOf("京");
+			if(index == 0) {
+				num += 10_000_000_000_000_000L;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 10_000_000_000_000_000L;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.contains("兆")) {
+			int index = s.indexOf("兆");
+			if(index == 0) {
+				num += 1_000_000_000_000L;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 1_000_000_000_000L;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.contains("億")) {
+			int index = s.indexOf("億");
+			if(index == 0) {
+				num += 100_000_000;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 100_000_000;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.contains("万")) {
+			int index = s.indexOf("万");
+			if(index == 0) {
+				num += 10_000;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 10_000;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.contains("千")) {
+			int index = s.indexOf("千");
+			if(index == 0) {
+				num += 1000;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 1000;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.contains("百")) {
+			int index = s.indexOf("百");
+			if(index == 0) {
+				num += 100;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 100;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.contains("十")) {
+			int index = s.indexOf("十");
+			if(index == 0) {
+				num += 10;
+			} else {
+				num += chineseToLong(s.substring(0, index)) * 10;
+			}
+			s = s.substring(index + 1);
+		}
+		if(s.equals("九")) {
+			if(negative)
+				return -(num + 9);
+			return num + 9;
+		} else if(s.equals("八")) {
+			if(negative)
+				return -(num + 8);
+			return num + 8;
+		} else if(s.equals("七")) {
+			if(negative)
+				return -(num + 7);
+			return num + 7;
+		} else if(s.equals("六")) {
+			if(negative)
+				return -(num + 6);
+			return num + 6;
+		} else if(s.equals("五")) {
+			if(negative)
+				return -(num + 5);
+			return num + 5;
+		} else if(s.equals("四")) {
+			if(negative)
+				return -(num + 4);
+			return num + 4;
+		} else if(s.equals("三")) {
+			if(negative)
+				return -(num + 3);
+			return num + 3;
+		} else if(s.equals("二")) {
+			if(negative)
+				return -(num + 2);
+			return num + 2;
+		} else if(s.equals("一")) {
+			if(negative)
+				return -(num + 1);
+			return num + 1;
+		} else {
+			if(negative)
+				return -num;
+			return num;
+		}
+	}
+	
+	public static String longToChinese(long num, boolean japanese) {
+		if(num == 0)
+			return "零";
+		StringBuilder s = new StringBuilder();
+		if(num < 0) {
+			if(num == Long.MIN_VALUE)
+				throw new NumberFormatException("Numbers less than -9,223,372,036,854,775,807 are not supported");
+			s.append('負');
+			num = -num;
+		}
+		if(num >= 10_000_000_000_000_000L) {
+			int count = (int) (num / 10_000_000_000_000_000L);
+			num %= 10_000_000_000_000_000L;
+			if(japanese && count == 1)
+				s.append('京');
+			else s.append(longToChinese(count, japanese) + "京");
+		}
+		if(num >= 1_000_000_000_000L) {
+			int count = (int) (num / 1_000_000_000_000L);
+			num %= 1_000_000_000_000L;
+			if(japanese && count == 1)
+				s.append('兆');
+			else s.append(longToChinese(count, japanese) + "兆");
+		} else if(!japanese && s.toString().endsWith("京"))
+			s.append("零");
+		if(num >= 100_000_000) {
+			int count = (int) (num / 100_000_000);
+			num %= 100_000_000;
+			if(japanese && count == 1)
+				s.append('億');
+			else if(japanese)
+				s.append(longToChinese(count, japanese) + "億");
+			else s.append(longToChinese(count, japanese) + "亿");
+		} else if(!japanese && s.toString().endsWith("兆"))
+			s.append("零");
+		if(num >= 10_000) {
+			int count = (int) (num / 10_000);
+			num %= 10_000;
+			if(japanese && count == 1)
+				s.append('万');
+			else s.append(longToChinese(count, japanese) + "万");
+		} else if(!japanese && s.toString().endsWith("兆"))
+			s.append("零");
+		if(num >= 1000) {
+			int count = (int) (num / 1000);
+			num %= 1000;
+			if(japanese && count == 1)
+				s.append('千');
+			else s.append(longToChinese(count, japanese) + "千");
+		} else if(!japanese && s.toString().endsWith("万"))
+			s.append("零");
+		if(num >= 100) {
+			int count = (int) (num / 100);
+			num %= 100;
+			if(japanese && count == 1)
+				s.append('百');
+			else s.append(longToChinese(count, japanese) + "百");
+		} else if(!japanese && s.toString().endsWith("兆"))
+			s.append("零");
+		if(num >= 10) {
+			int count = (int) (num / 10);
+			num %= 10;
+			if(count == 1)
+				s.append('十');
+			else s.append(longToChinese(count, japanese) + "十");
+		} else if(!japanese && s.toString().endsWith("百"))
+			s.append("零");
+		if(num == 9)
+			return s.append('九').toString();
+		else if(num == 8)
+			return s.append('八').toString();
+		else if(num == 7)
+			return s.append('七').toString();
+		else if(num == 6)
+			return s.append('六').toString();
+		else if(num == 5)
+			return s.append('五').toString();
+		else if(num == 4)
+			return s.append('四').toString();
+		else if(num == 3)
+			return s.append('三').toString();
+		else if(num == 2)
+			return s.append('二').toString();
+		else if(num == 1) 
+			return s.append('一').toString();
+		else return s.toString();
 	}
 	
 	/**
@@ -785,7 +1029,7 @@ public class Algorithms {
 	} 
 
 	/**
-	 * If 5 * a^2 �} 4 is square, it is a Fibonacci number.
+	 * If 5 * a^2 ± 4 is square, it is a Fibonacci number.
 	 * 
 	 * @param n
 	 * @return is n a Fibonacci number?
@@ -796,7 +1040,7 @@ public class Algorithms {
 	}
 	
 	/**
-	 * If 5 * a^2 �} 4 is square, it is a Fibonacci number.
+	 * If 5 * a^2 ± 4 is square, it is a Fibonacci number.
 	 * 
 	 * @param n
 	 * @return is n a Fibonacci number?
@@ -846,7 +1090,7 @@ public class Algorithms {
 	/**
 	 * Method B uses Binet's Formula to approximate the nth value.
 	 * 
-	 * Phi = (��5 + 1) / 2; Fib(n) = (Phi^n - (-Phi)^(-n)) / ��5
+	 * Phi = (√5 + 1) / 2; Fib(n) = (Phi^n - (-Phi)^(-n)) / √5
 	 * 
 	 * For n > 69, the approximation becomes too inaccurate to return the correct
 	 * value.
@@ -886,7 +1130,7 @@ public class Algorithms {
 	/**
 	 * Method D uses Binet's formula to approximate the nth value.
 	 * 
-	 * Phi = (��5 + 1) / 2; Fib(n) = (Phi^n - (-Phi)^(-n)) / ��5
+	 * Phi = (√5 + 1) / 2; Fib(n) = (Phi^n - (-Phi)^(-n)) / √5
 	 * 
 	 * For n > 146, the approximation becomes too inaccurate to return the correct
 	 * value.
@@ -993,7 +1237,7 @@ public class Algorithms {
 	/**
 	 * Method D uses Binet's formula to approximate the nth value.
 	 * 
-	 * Phi = (��5 + 1) / 2; Fib(n) = (Phi^n - (-Phi)^(-n)) / ��5
+	 * Phi = (√5 + 1) / 2; Fib(n) = (Phi^n - (-Phi)^(-n)) / √5
 	 * 
 	 * For n > 146, the approximation becomes too inaccurate to return the correct
 	 * value.

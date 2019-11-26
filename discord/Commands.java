@@ -1,6 +1,5 @@
 package discord;
 
-import Algorithms.Algorithms;
 import ch.obermuhlner.math.big.BigDecimalMath;
 import ch.obermuhlner.math.big.DefaultBigDecimalMath;
 
@@ -22,6 +21,8 @@ import java.util.concurrent.TimeoutException;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
+
+import algorithms.Algorithms;
 
 public class Commands implements MessageCreateListener {
 	
@@ -115,7 +116,7 @@ public class Commands implements MessageCreateListener {
 						embed = new EmbedBuilder().setAuthor("Information")
 							.setTitle("Μαθηματική Αριθμομηχανή")
 							.setDescription("A Discord bot for mathematics calculations.")
-							.addField("About", "Μαθηματική Αριθμομηχανή (Mathēmatikí Arithmomēchaní) is a Discord bot application developed by Nes370.\nShe is written in Java and runs on Java 8.\nShe uses:\n • [BtoBastian's Javacord library](https://github.com/BtoBastian/Javacord/tree/v_3) v3.0.4\n • [Eobermuhlner's Big Math library](https://github.com/eobermuhlner/big-math) v2.3.0.")
+							.addField("About", "Μαθηματική Αριθμομηχανή (Mathēmatikí Arithmomēchaní) is a Discord bot application developed by Nes370.\nShe is written in Java and runs on Java 8.\nShe uses:\n • [BtoBastian's Javacord library](https://github.com/BtoBastian/Javacord/tree/v_3) v3.0.4\n • [Eobermuhlner's Big Math library](https://github.com/eobermuhlner/big-math) v2.3.0.\nYou can read her source code on [GitHub](https://github.com/Nes370/Mathematiki-Arithmomechani)")
 							.addField("Support Development", "\nIf you'd like to support the developer, consider making a one-time donation via [PayPal](https://paypal.me/nes370) or become a patron at [Patreon](https://www.patreon.com/nes370).")
 							.addField("Contact", "If you wish to add this bot to your server, please contact <@237676240931258378> (Nes#9856) on Discord.")
 							.addField("RunTime", Discord.getTimeString());
@@ -131,7 +132,8 @@ public class Commands implements MessageCreateListener {
 							.addField("Vertex", "Converts a given quadratic equation into vertex form.")
 							.addField("Roman", "Converts Arabic numerals to Roman numerals and vice-versa.")
 							.addField("Chinese", "Converts Arabic numerals to Chinese numerals and vice-versa.")
-							.addField("To Do List", "\nAdd point-slope command, Taylor series, `ζ(n)`, Algebraic solve function.\nDebug √3945240.5, cbrt(462252638930914036407598308067858564) misbehavior.");
+							.addField("Japanese", "Converts Arabic numerals to Japanese numerals and vice-versa.")
+							.addField("To Do List", "\nAdd paper conversion, coin conversion, number to English, point-slope command, Taylor series, `ζ(n)`, Algebraic solve function.\nDebug √3945240.5, cbrt(462252638930914036407598308067858564), c.primes(111) misbehavior.");
 						break;
 					case "functions":
 						
@@ -295,6 +297,50 @@ public class Commands implements MessageCreateListener {
 							//TODO ROMAN INTEGER METHOD
 							
 						}
+						break;
+					case "japanese":
+					case "chinese":
+						if(content.length >= 2) {
+							boolean japanese = content[0].equals("japanese");
+							try {
+								long num = Long.parseLong(content[1].replaceAll(",", ""));
+								embed = new EmbedBuilder().setAuthor("Arabic to Chinese Numerals").setDescription(content[1] + " = \n" + Algorithms.longToChinese(num, japanese));
+								if(japanese)
+									embed.setAuthor("Arabic to Japanese Numerals");
+							} catch(NumberFormatException nfe) {
+								String cause = nfe.getMessage();
+								System.out.println(cause);
+								if(cause == null || !(cause.contains("cannot") || cause.contains("less than"))) {
+									try {
+										double value = Double.parseDouble(content[1].replaceAll(",", ""));
+										System.out.println(value);
+										if(value > Long.MAX_VALUE)
+											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Numbers greater than 9,223,372,036,854,775,807 are not supported.");
+										else if(value < Long.MIN_VALUE)
+											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Numbers less than -9,223,372,036,854,775,808 are not supported.");
+										else embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Decimal conversion is not supported.");
+										break;
+									} catch(NumberFormatException nfe2) {}
+									try {
+										embed = new EmbedBuilder().setAuthor("Chinese to Arabic Numerals").setDescription(content[1] + " = \n" + Algorithms.chineseToLong(content[1]));
+										if(japanese)
+											embed.setAuthor("Japanese to Arabic Numerals");
+									} catch(NumberFormatException nfe2) {
+										String cause2 = nfe2.getMessage();
+										if(cause2 != null)
+											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause2 + ".");
+										else embed = NumberFormatError;
+									}
+								}
+								else embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause + ".");
+							}
+							//TODO ROMAN INTEGER METHOD
+							
+						}
+						break;
+						
+					case "test":
+						embed = new EmbedBuilder().setDescription("❘M\u0305❘  |M\u0305| │\u0305M\u0305│\u0305 │M\u0305│");
 						break;
 						
 					default:
