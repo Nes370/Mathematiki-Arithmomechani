@@ -2,5 +2,5 @@
 
 Additional dependencies include:
 
--https://github.com/eobermuhlner/big-math
--https://github.com/Javacord/Javacord
+- https://github.com/eobermuhlner/big-math
+- https://github.com/Javacord/Javacord
