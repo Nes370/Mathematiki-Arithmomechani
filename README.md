@@ -1,6 +1,19 @@
 # Μαθηματική Αριθμομηχανή
 A Discord bot for mathematics calculations.
 
+An overview of this project:
+
+- discord/
+  - Discord.java    
+    - Logs into Discord
+  - Commands.java
+    - Parses user input, applies functions to input, and returns responses to user
+- algorithms/
+  - Algorithms.java
+    - General mathematics algorithms
+  - Conversion.java
+    - Converts numbers and equations to other forms
+
 ## About
 Μαθηματική Αριθμομηχανή (Mathēmatikí Arithmomēchaní) is a Discord bot application developed by Nes370.
 She is written in Java and runs on Java 8.
