@@ -8,40 +8,33 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 
+import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
+import org.javacord.api.entity.user.UserStatus;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
 
 import algorithms.Algorithms;
+import algorithms.Conversion;
 
 public class Commands implements MessageCreateListener {
 	
 	final String PREFIX = "c.";
+	
 	final EmbedBuilder NoSuchCommandError = new EmbedBuilder()
 			.setAuthor("Invalid Command")
-			.setDescription("Your command was not recognized.\nUse `c.help` for a list of commands."),
-		NumberFormatError = new EmbedBuilder()
-			.setAuthor("Invalid Parameter")
-			.setDescription("One or more of your parameters were incompatible with the requested command."),
-		ArithmeticError = new EmbedBuilder()
-			.setAuthor("Incalculable Arithmetic"),
-		InsufficientParametersError = new EmbedBuilder()
-			.setAuthor("Insufficient Parameters")
-			.setDescription("Your command is missing one or more necessary parameters."),
-		ExcessParametersError = new EmbedBuilder()
-			.setAuthor("Excess Parameters")
-			.setDescription("Your command has one or more excess parameters.");
-	final DateFormat DF = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+			.setDescription("Your command was not recognized.\nUse `c.help` for a list of commands.");
 	final Color BLUE = new Color(0x00b0f4);
 	final BigDecimal GAMMA = BigDecimalMath.toBigDecimal("0.577215664901532860606512090082402431"+
 			"0421593359399235988057672348848677267776646709369470632917467495146314472498070"+
@@ -89,6 +82,8 @@ public class Commands implements MessageCreateListener {
 			"818557747576863274565134300413433021131473713868974402394801381716");
 	final BigDecimal ALPHA = BigDecimalMath.toBigDecimal("2.50290787509589282228390287321821578638" + 
 			"127137672714997733619205677923546317959020670329964974643383412959");
+	final BigDecimal AVOGADRO = BigDecimal.valueOf(6.022_140_76e23);
+	final BigDecimal PLANCK = BigDecimal.valueOf(6.626_070_15e-34);
 	BigDecimal X = BigDecimal.ZERO;
 	BigDecimal Y = BigDecimal.ZERO;
 	BigDecimal Z = BigDecimal.ZERO;
@@ -97,311 +92,451 @@ public class Commands implements MessageCreateListener {
 	public void onMessageCreate(MessageCreateEvent e) {
 		
 		if(e.getMessageAuthor().isBotOwner()) {
-			if(e.getMessageContent().equals("c.restart"))
+			if(e.getMessageContent().equals("c.restart")) {
+				Discord.log("Restarted at " + Discord.DF.format(Date.from(Instant.now())));
 				Discord.main(null);
-			else if(e.getMessageContent().equals("c.shutdown"))
+			} else if(e.getMessageContent().equals("c.shutdown")) {
+				Discord.log("Shutdown at " + Discord.DF.format(Date.from(Instant.now())));
 				System.exit(0);
+			}
 		}
 		
 		if(!e.getMessageAuthor().isBotUser() && e.getMessageContent().toLowerCase().startsWith(PREFIX)) {
 			
-			System.out.println(DF.format((Calendar.getInstance().getTime())) + ": " + e.getMessageAuthor() + " used " + e.getMessageContent() + " in " + e.getServer() + ", " + e.getChannel());				
+			Discord.getAPI().updateStatus(UserStatus.DO_NOT_DISTURB);
+			
+			String message = Discord.DF.format((Calendar.getInstance().getTime())) + ": " + e.getMessageAuthor() + " used " + e.getMessageContent() + " in " + e.getServer() + ", " + e.getChannel();
+			EmbedBuilder logEmbed = new EmbedBuilder()
+					.setDescription("```" + message + "```")
+					.addInlineField("User", "<@" + e.getMessageAuthor().getIdAsString() + ">")
+					.addInlineField("Channel", "<#" + e.getChannel().getIdAsString() + ">")
+					.addField("Command", e.getMessageContent())
+					.setColor(BLUE);
+					
+			CompletableFuture<Message> sentLogMessage = Discord.commandLog(message, logEmbed);
+			
 			String[] content = e.getMessageContent().substring(2).split(" +");
 			EmbedBuilder embed = NoSuchCommandError;
 			long time = -1;
 			
-			if(content.length > 0) 
-				switch(content[0]) {
-					case "info":
-						embed = new EmbedBuilder().setAuthor("Information")
-							.setTitle("Μαθηματική Αριθμομηχανή")
-							.setDescription("A Discord bot for mathematics calculations.")
-							.addField("About", "Μαθηματική Αριθμομηχανή (Mathēmatikí Arithmomēchaní) is a Discord bot application developed by Nes370.\nShe is written in Java and runs on Java 8.\nShe uses:\n • [BtoBastian's Javacord library](https://github.com/BtoBastian/Javacord/tree/v_3) v3.0.4\n • [Eobermuhlner's Big Math library](https://github.com/eobermuhlner/big-math) v2.3.0.\nYou can read her source code on [GitHub](https://github.com/Nes370/Mathematiki-Arithmomechani)")
-							.addField("Support Development", "\nIf you'd like to support the developer, consider making a one-time donation via [PayPal](https://paypal.me/nes370) or become a patron at [Patreon](https://www.patreon.com/nes370).")
-							.addField("Contact", "If you wish to add this bot to your server, please contact <@237676240931258378> (Nes#9856) on Discord.")
-							.addField("RunTime", Discord.getTimeString());
-						break;
-					case "help":
-						embed = new EmbedBuilder().setAuthor("Help")
-							.addField("Info", "View information about this bot.")
-							.addField("Help", "View this list of commands.")
-							.addField("Functions", "View the list of functions, operators and constants supported by this bot.")
-							.addField("Order", "View the logical order of operations.")
-							.addField("Solve", "Returns the result of a given expression.")
-							.addField("Primes", "Returns the prime factorization of the given expression, if it exists.")
-							.addField("Vertex", "Converts a given quadratic equation into vertex form.")
-							.addField("Roman", "Converts Arabic numerals to Roman numerals and vice-versa.")
-							.addField("Chinese", "Converts Arabic numerals to Chinese numerals and vice-versa.")
-							.addField("Japanese", "Converts Arabic numerals to Japanese numerals and vice-versa.")
-							.addField("To Do List", "\nAdd paper conversion, coin conversion, number to English, point-slope command, Taylor series, `ζ(n)`, Algebraic solve function.\nDebug √3945240.5, cbrt(462252638930914036407598308067858564), c.primes(111) misbehavior.");
-						break;
-					case "functions":
-						
-						String x;
-						if(BigDecimalMath.isLongValue(X))
-							x = X.toPlainString();
-						else x = toScientificString(format(X, 16));
-						String y;
-						if(BigDecimalMath.isLongValue(Y))
-							y = Y.toPlainString();
-						else y = toScientificString(format(Y, 16));
-						String z;
-						if(BigDecimalMath.isLongValue(Z))
-							z = Z.toPlainString();
-						else z = toScientificString(format(Z, 16));
-						embed = new EmbedBuilder().setAuthor("Functions")
-							.addField("Binary operators", "• `+` addition\n • `-` subtraction\n • `*` or `×` or `⋅` multiplication\n • `/` or `÷` division\n • `%` modulo\n • `^` exponentation")
-							.addField("Unary operators", " • `-(x)` negation\n • `√(x)` square root, `∛(x)` cube root, `∜(x)` quad root\n • `(x)!` factorial")
-							.addField("Functions", "Roots:\n • `sqrt(x)` square root\n • `cbrt(x)` cube root\n • `root(n, x)` nth root of x"
-									+ "\nLogarithms:\n • `log(x)` or `ln(x)` natural logarithm\n • `log(b, x)` or `log_b(x)` logarithm to base b of x"
-									+ "\nTrigonometry:\n • `sin(x)` sine, `asin(x)` arcsine, `sinh(x)` hyperbolic sine\n • `cos(x)` cosine, `acos(x)` arccosine, `cosh(x)` hyperbolic cosine\n • `tan(x)` tangent, `atan(x)` arctangent, `tanh(x)` hyperbolic tangent\n • `csc(x)` cosecant, `acsc(x)` arccosecant, `csch(x)` hyperbolic cosecant\n • `sec(x)` secant, `asec(x)` arcsecant, `sech(x)` hyperbolic secant\n • `cot(x)` cotangent, `acot(x)` arccotangent, `coth(x)` hyperbolic cotangent"
-									+ "\nOther:\n • `abs(x)` absolute value\n • `round(x)` round half up\n • `random(x)` random value between 0 and x\n • `fib(n)` nth fibonacci number, `afib(f)` fibonacci inverse\n • `Γ(x)` or `gamma(x)` gamma function")
-							.addField("Constants", " • `π` or `pi` Archimedes' constant\n • `e` Euler's number\n • `α` or `alpha` Feigenbaum reduction parameter\n • `δ` or `delta` Feigenbaum bifurcation velocity\n • `φ` or `phi` the golden ratio\n • `γ` or `gamma` Euler-Mascheroni constant")
-							.addField("Variables", "`x` " + x + "\n`y` " + y + "\n`z` " + z + "\n`setx(a)`, `sety(a)`, `setz(a)` set the variable's value to a.");
-						break;
-					case "order":
-						embed = new EmbedBuilder().setAuthor("Order of Operations")
-							.setDescription("This is the order in which the bot solves different elements in an expression.")
-							.addField("Functions", "First values within function parentheses are resolved.\nThen functions are calculated with the resolved values as inputs.")
-							.addField("Constants", "Constants are replaced with their corresponding values.")
-							.addField("Parentheses", "First content between absolute value bars `|x|` are resolved from left to right.\nThen content between parenthesis pairs `(x)` and brackets `[x]` are resolved from left to right concurrently.")
-							.addField("Factorials", "Factorials `(x)!` are resolved from left to right.")
-							.addField("Exponentials", "First roots `√(x)` are resolved from left to right.\nThen exponents `a^b` are resolved from right to left.")
-							.addField("Multiplication", "Multiplication `a*b`, division `a/b`, and modulo `a%b` are resolved from left to right concurrently.")
-							.addField("Addition", "Addition `a+b` and subtraction `a-b` are resolved from left to right concurrently.");
-						break;
-					case "solve":
-						if(content.length >= 2) {
-							try {
-								StringBuilder work = new StringBuilder(content[1]);
-								if(content.length > 2)
-									for(int i = 2; i < content.length; i++) {
-										work.append(" " + content[i]);
-									}
-								long t = System.currentTimeMillis();
-								BigDecimal result = solve(new String(work).replaceAll("\\s",""), t);
-								time = System.currentTimeMillis() - t;
-								work.append(" =\n");
-								
-								String description;
-								try {
-									description = new String(work) + result.toBigIntegerExact();
-									if(description.length() > 1024)
-										throw new ArithmeticException();
-								} catch(ArithmeticException ae) {
-									description = new String(work) + toScientificString(result.toString());
-									if(description.length() > 1024)
-										description = new String(work) + toScientificString(format(result, 16));
-								}
-								embed = new EmbedBuilder().setAuthor("Solve").setDescription(description);
-							} catch(StringIndexOutOfBoundsException sioobe) {
-								String cause = sioobe.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed =new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings.");
-							} catch(NullPointerException npe) {
-								String cause = npe.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values.");
-							} catch(ArithmeticException ae) {
-								String cause =  ae.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = ArithmeticError.setDescription("The operation was interrupted because an incalculable exception was encountered." + cause);
-								} else embed = ArithmeticError.setDescription("The operation was interrupted because an incalculable exception was encountered.");
-							} catch(NumberFormatException nfe) {
-								embed = NumberFormatError;
-							} catch(TimeoutException te) {
-								String cause = te.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process.");
-							}
-						}
-						break;
+			if(content.length > 0) switch (content[0]) {
+			
+				case "info":
+					embed = new EmbedBuilder().setAuthor("Information")
+						.setTitle("Μαθηματική Αριθμομηχανή")
+						.setDescription("A Discord bot for mathematics calculations.")
+						.addField("About", "Μαθηματική Αριθμομηχανή (Mathēmatikí Arithmomēchaní) is a Discord bot application developed by Nes370.\nShe is written in Java and runs on Java 8.\nShe uses:\n • [BtoBastian's Javacord library](https://github.com/BtoBastian/Javacord/tree/v_3) v3.0.4\n • [Eobermuhlner's Big Math library](https://github.com/eobermuhlner/big-math) v2.3.0.\nYou can read her source code on [GitHub](https://github.com/Nes370/Mathematiki-Arithmomechani)")
+						.addField("Support Development", "\nIf you'd like to support the developer, consider making a one-time donation via [PayPal](https://paypal.me/nes370) or become a patron at [Patreon](https://www.patreon.com/nes370).")
+						.addField("Contact", "If you wish to add this bot to your server, please contact <@237676240931258378> (Nes#9856) on Discord.")
+						.addField("RunTime", Discord.getTimeString());
+					 break;
+					 
+				case "help":
+					embed = new EmbedBuilder().setAuthor("Help")
+						.addInlineField("Info", "View information about this bot.")
+						.addInlineField("Help", "View this list of commands.")
+						.addInlineField("Functions", "View the list of functions, operators, constants and variables supported.")
+						.addInlineField("Order", "View the logical order of operations.")
+						.addInlineField("Solve", "Returns the result of a given expression. This function does not solve equations, just expressions.")
+						.addInlineField("Primes", "Returns the prime factorization of a given expression, if it exists. Only works with whole numbers.")
+						.addInlineField("Vertex", "Formats a given quadratic equation into vertex form.")
+						.addInlineField("Roman", "Converts Arabic numerals to Roman numerals and vice-versa.")
+						.addInlineField("Chinese", "Converts Arabic numerals to Chinese numerals and vice-versa.")
+						.addInlineField("Japanese", "Converts Arabic numerals to Japanese numerals and vice-versa.")
+						.addField("To Do List", "\n • Reminder function"
+								+ "\n • Command logging"
+								+ "\n • Paper and coin currency conversion"
+								+ "\n • Number to plain English"
+								+ "\n • Point-slope equation formatter"
+								+ "\n • Taylor series"
+								+ "\n • `ζ(n)`"
+								+ "\n • Algebraic equations solving function."
+								+ "\nDebug √3945240.5, cbrt(462252638930914036407598308067858564), c.primes(111) misbehavior.");
+					break;
 					
-					case "primes":
-						if(content.length >= 2) {
-							try {
-								StringBuilder work = new StringBuilder(e.getMessageContent().substring(PREFIX.length() + content[0].length()));
-								long t = System.currentTimeMillis();
-								work.append(" =\n" + factorizationToString(Algorithms.getPrimeFactorization(solve(work.toString().replaceAll("\\s",""), t).toBigIntegerExact())));
-								time = System.currentTimeMillis() - t;
-								embed = new EmbedBuilder().setAuthor("Prime Factors").setDescription(work.toString());
-							} catch(StringIndexOutOfBoundsException sioobe) {
-								String cause = sioobe.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed =new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings.");
-							} catch(NullPointerException npe) {
-								String cause = npe.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values.");
-							} catch(ArithmeticException ae) {
-								String cause =  ae.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = ArithmeticError.setDescription("The operation was interrupted because an incalculable exception was encountered." + cause);
-								} else embed = ArithmeticError.setDescription("The operation was interrupted because an incalculable exception was encountered.");
-							} catch(NumberFormatException nfe) {
-								embed = NumberFormatError;
-							} catch(TimeoutException te) {
-								String cause = te.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process.");
-							}
-						}
-						break;
-						
-					case "vertex":
-						if(content.length >= 2) {
-							StringBuilder work = new StringBuilder(e.getMessageContent().substring(content[0].length() + 3));
-							embed = new EmbedBuilder().setAuthor("Vertex Form").setDescription(Algorithms.getVertexFormFull(work.toString()));
-						}
-						break;
-						
-					case "roman":
-						if(content.length >= 2) {
-							try {
-								int num = Integer.parseInt(content[1].replaceAll(",", ""));
-								embed = new EmbedBuilder().setAuthor("Arabic to Roman Numerals").setDescription(content[1] + " = \n" + Algorithms.intToRoman(num));
-							} catch(NumberFormatException nfe) {
-								String cause = nfe.getMessage();
-								System.out.println(cause);
-								if(cause == null || !cause.contains("cannot")) {
-									try {
-										Double.parseDouble(content[1].replaceAll(",", ""));
-										embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Decimals cannot be represented in Roman Numerals.");
-										break;
-									} catch(NumberFormatException nfe2) {}
-									try {
-										embed = new EmbedBuilder().setAuthor("Roman to Arabic Numerals").setDescription(content[1] + " = \n" + Algorithms.romanToInt(content[1]));
-									} catch(NumberFormatException nfe2) {
-										String cause2 = nfe2.getMessage();
-										if(cause2 != null)
-											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause2 + ".");
-										else embed = NumberFormatError;
-									}
-								}
-								else embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause + ".");
-							}
-							//TODO ROMAN INTEGER METHOD
-							
-						}
-						break;
-					case "japanese":
-					case "chinese":
-						if(content.length >= 2) {
-							boolean japanese = content[0].equals("japanese");
-							try {
-								long num = Long.parseLong(content[1].replaceAll(",", ""));
-								embed = new EmbedBuilder().setAuthor("Arabic to Chinese Numerals").setDescription(content[1] + " = \n" + Algorithms.longToChinese(num, japanese));
-								if(japanese)
-									embed.setAuthor("Arabic to Japanese Numerals");
-							} catch(NumberFormatException nfe) {
-								String cause = nfe.getMessage();
-								System.out.println(cause);
-								if(cause == null || !(cause.contains("cannot") || cause.contains("less than"))) {
-									try {
-										double value = Double.parseDouble(content[1].replaceAll(",", ""));
-										System.out.println(value);
-										if(value > Long.MAX_VALUE)
-											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Numbers greater than 9,223,372,036,854,775,807 are not supported.");
-										else if(value < Long.MIN_VALUE)
-											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Numbers less than -9,223,372,036,854,775,808 are not supported.");
-										else embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Decimal conversion is not supported.");
-										break;
-									} catch(NumberFormatException nfe2) {}
-									try {
-										embed = new EmbedBuilder().setAuthor("Chinese to Arabic Numerals").setDescription(content[1] + " = \n" + Algorithms.chineseToLong(content[1]));
-										if(japanese)
-											embed.setAuthor("Japanese to Arabic Numerals");
-									} catch(NumberFormatException nfe2) {
-										String cause2 = nfe2.getMessage();
-										if(cause2 != null)
-											embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause2 + ".");
-										else embed = NumberFormatError;
-									}
-								}
-								else embed = NumberFormatError.setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause + ".");
-							}
-							//TODO ROMAN INTEGER METHOD
-							
-						}
-						break;
-						
-					case "test":
-						embed = new EmbedBuilder().setDescription("❘M\u0305❘  |M\u0305| │\u0305M\u0305│\u0305 │M\u0305│");
-						break;
-						
-					default:
-						if(content.length >= 1) {
-							try {
-								StringBuilder work = new StringBuilder(content[0]);
-								for(int i = 1; i < content.length; i++)
+				case "functions":
+					String x;
+					if(BigDecimalMath.isLongValue(X))
+						x = X.toPlainString();
+					else x = toScientificString(format(X, 16));
+					String y;
+					if(BigDecimalMath.isLongValue(Y))
+						y = Y.toPlainString();
+					else y = toScientificString(format(Y, 16));
+					String z;
+					if(BigDecimalMath.isLongValue(Z))
+						z = Z.toPlainString();
+					else z = toScientificString(format(Z, 16));
+					embed = new EmbedBuilder().setAuthor("Functions")
+						.addField("Binary operators", "• `+` addition\n • `-` subtraction\n • `*` or `×` or `⋅` multiplication\n • `/` or `÷` division\n • `%` modulo\n • `^` exponentation")
+						.addField("Unary operators", " • `-(x)` negation\n • `√(x)` square root, `∛(x)` cube root, `∜(x)` quad root\n • `(x)!` factorial")
+						.addField("Functions", "Roots:\n • `sqrt(x)` square root\n • `cbrt(x)` cube root\n • `root(n, x)` nth root of x"
+								+ "\nLogarithms:\n • `log(x)` or `ln(x)` natural logarithm\n • `log(b, x)` or `log_b(x)` logarithm to base b of x"
+								+ "\nTrigonometry:\n • `sin(x)` sine, `asin(x)` arcsine, `sinh(x)` hyperbolic sine\n • `cos(x)` cosine, `acos(x)` arccosine, `cosh(x)` hyperbolic cosine\n • `tan(x)` tangent, `atan(x)` arctangent, `tanh(x)` hyperbolic tangent\n • `csc(x)` cosecant, `acsc(x)` arccosecant, `csch(x)` hyperbolic cosecant\n • `sec(x)` secant, `asec(x)` arcsecant, `sech(x)` hyperbolic secant\n • `cot(x)` cotangent, `acot(x)` arccotangent, `coth(x)` hyperbolic cotangent"
+								+ "\nOther:\n • `abs(x)` absolute value\n • `round(x)` round half up\n • `random(x)` random value between 0 and x\n • `fib(n)` nth fibonacci number, `afib(f)` fibonacci inverse\n • `Γ(x)` or `gamma(x)` gamma function")
+						.addField("Constants", " • `π` or `pi` Archimedes' constant\n • `n` or `avogadro` Avogadro's constant\n • `e` Euler's number\n • `α` or `alpha` Feigenbaum reduction parameter\n • `δ` or `delta` Feigenbaum bifurcation velocity\n • `φ` or `phi` the golden ratio\n • `γ` or `gamma` Euler-Mascheroni constant\n • `h` Planck's constant")
+						.addField("Variables", "`x` " + x + "\n`y` " + y + "\n`z` " + z + "\n`setx(a)`, `sety(a)`, `setz(a)` set the variable's value to a.");
+					break;
+					
+				case "order":
+					embed = new EmbedBuilder().setAuthor("Order of Operations")
+						.setDescription("This is the order in which the bot solves different elements in an expression.")
+						.addField("Functions", "First values within function parentheses are resolved.\nThen functions are calculated with the resolved values as inputs.")
+						.addField("Constants", "Constants are replaced with their corresponding values.")
+						.addField("Parentheses", "First content between absolute value bars `|x|` are resolved from left to right.\nThen content between parenthesis pairs `(x)` and brackets `[x]` are resolved from left to right concurrently.")
+						.addField("Factorials", "Factorials `(x)!` are resolved from left to right.")
+						.addField("Exponentials", "First roots `√(x)` are resolved from left to right.\nThen exponents `a^b` are resolved from right to left.")
+						.addField("Multiplication", "Multiplication `a*b`, division `a/b`, and modulo `a%b` are resolved from left to right concurrently.")
+						.addField("Addition", "Addition `a+b` and subtraction `a-b` are resolved from left to right concurrently.");
+					break;
+					
+				case "solve":
+					if(content.length >= 2) {
+						try {
+							StringBuilder work = new StringBuilder(content[1]);
+							if(content.length > 2)
+								for(int i = 2; i < content.length; i++) {
 									work.append(" " + content[i]);
-								
-								long t = System.currentTimeMillis();
-								BigDecimal result = solve(new String(work).replaceAll("\\s",""), t);
-								time = System.currentTimeMillis() - t;
-								work.append(" =\n");
-								
-								String description;
-								try {
-									description = new String(work) + result.toBigIntegerExact();
-									if(description.length() > 1024) {
-										throw new ArithmeticException("Too long");
-									}
-								} catch(ArithmeticException ae) {
-									description = new String(work) + toScientificString(result.toString());
-									if(description.length() > 1024) {
-										description = new String(work) + toScientificString(format(result, 16));
-									}
 								}
-								embed = new EmbedBuilder().setAuthor("Solve").setDescription(description);
-							} catch(StringIndexOutOfBoundsException sioobe) {
-								String cause = sioobe.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed =new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings.");
-							} catch(NullPointerException npe) {
-								String cause = npe.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values.");
+							long t = System.currentTimeMillis();
+							BigDecimal result = solve(new String(work).replaceAll("\\s",""), t);
+							time = System.currentTimeMillis() - t;
+							work.append(" =\n");
+							
+							String description;
+							try {
+								description = new String(work) + result.toBigIntegerExact();
+								if(description.length() > 1024)
+									throw new ArithmeticException();
 							} catch(ArithmeticException ae) {
-								String cause =  ae.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = ArithmeticError.setDescription("The operation was interrupted because an incalculable exception was encountered." + cause);
-								} else embed = ArithmeticError.setDescription("The operation was interrupted because an incalculable exception was encountered.");
-							} catch(NumberFormatException nfe) {
-								embed = NumberFormatError;
-							} catch(TimeoutException te) {
-								String cause = te.getMessage();
-								if(cause != null) {
-									cause = "\nReason: " + cause + ".";
-									embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process." + cause);
-								} else embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process.");
+								description = new String(work) + toScientificString(result.toString());
+								if(description.length() > 1024)
+									description = new String(work) + toScientificString(format(result, 16));
+							}
+							embed = new EmbedBuilder().setAuthor("Solve").setDescription(description);
+							
+						} catch(StringIndexOutOfBoundsException sioobe) {
+							String cause = sioobe.getMessage();
+							Discord.errorLog("StringIndexOutOfBoundsException", "Unmatched Grouping", cause, Arrays.toString(sioobe.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings.");
+							
+						} catch(NullPointerException npe) {
+							String cause = npe.getMessage();
+							Discord.errorLog("NullPointerException", "Missing Values", cause, Arrays.toString(npe.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values.");
+							
+						} catch(ArithmeticException ae) {
+							String cause =  ae.getMessage();
+							Discord.errorLog("ArithmeticException", "Incalculable Arithmetic", cause, Arrays.toString(ae.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Incalculable Arithmetic").setDescription("The operation was interrupted because an incalculable exception was encountered." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Incalculable Arithmetic").setDescription("The operation was interrupted because an incalculable exception was encountered.");
+							
+						} catch(NumberFormatException nfe) {
+							Discord.errorLog("NumberFormatException", "Invalid Parameter", nfe.getMessage(), Arrays.toString(nfe.getStackTrace()), logEmbed, sentLogMessage);
+							embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.");
+							
+						} catch(TimeoutException te) {
+							String cause = te.getMessage();
+							Discord.errorLog("TimeoutException", "Timeout", cause, Arrays.toString(te.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process.");
+						}
+					}
+					break;
+
+				case "primes":
+					if(content.length >= 2) {
+						try {
+							StringBuilder work = new StringBuilder(e.getMessageContent().substring(PREFIX.length() + content[0].length()));
+							long t = System.currentTimeMillis();
+							work.append(" =\n" + factorizationToString(Algorithms.getPrimeFactorization(solve(work.toString().replaceAll("\\s",""), t).toBigIntegerExact())));
+							time = System.currentTimeMillis() - t;
+							embed = new EmbedBuilder().setAuthor("Prime Factors").setDescription(work.toString());
+							
+						} catch(StringIndexOutOfBoundsException sioobe) {
+							String cause = sioobe.getMessage();
+							Discord.errorLog("StringIndexOutOfBoundsException", "Unmatched Grouping", cause, Arrays.toString(sioobe.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed =new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings.");
+				
+						} catch(NullPointerException npe) {
+							String cause = npe.getMessage();
+							Discord.errorLog("NullPointerException", "Missing Values", cause, Arrays.toString(npe.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values.");
+						
+						} catch(ArithmeticException ae) {
+							String cause =  ae.getMessage();
+							Discord.errorLog("ArithmeticException", "Incalculable Arithmetic", cause, Arrays.toString(ae.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Incalculable Arithmetic").setDescription("The operation was interrupted because an incalculable exception was encountered." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Incalculable Arithmetic").setDescription("The operation was interrupted because an incalculable exception was encountered.");
+						
+						} catch(NumberFormatException nfe) {
+							Discord.errorLog("NumberFormatException", "Invalid Parameter", nfe.getMessage(), Arrays.toString(nfe.getStackTrace()), logEmbed, sentLogMessage);
+							embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.");
+						
+						} catch(TimeoutException te) {
+							String cause = te.getMessage();
+							Discord.errorLog("TimeoutException", "Timeout", cause, Arrays.toString(te.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process.");
+						}
+					}
+					break;
+				
+				case "vertex":
+					if(content.length >= 2) {
+						StringBuilder work = new StringBuilder(e.getMessageContent().substring(content[0].length() + 3));
+						embed = new EmbedBuilder().setAuthor("Vertex Form").setDescription(Conversion.getVertexFormFull(work.toString()));
+					}
+					break;
+					
+				case "roman":
+					ROMAN: if(content.length >= 2) {
+						try {
+							int num = Integer.parseInt(content[1].replaceAll(",", ""));
+							embed = new EmbedBuilder().setAuthor("Arabic to Roman Numerals").setDescription(content[1] + " = \n" + Conversion.intToRoman(num));
+						
+						} catch(NumberFormatException nfe) {
+							String cause = nfe.getMessage();
+							if(cause == null || !cause.contains("cannot")) {
+								try {
+									Double.parseDouble(content[1].replaceAll(",", ""));
+									embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Decimals cannot be represented in Roman Numerals.");
+									break ROMAN;
+								} catch(NumberFormatException nfe2) {}
+								try {
+									embed = new EmbedBuilder().setAuthor("Roman to Arabic Numerals").setDescription(content[1] + " = \n" + Conversion.romanToInt(content[1]));
+								} catch(NumberFormatException nfe2) {
+									String cause2 = nfe2.getMessage();
+									Discord.errorLog("NumberFormatException", "Invalid Parameter", cause2, Arrays.toString(nfe2.getStackTrace()), logEmbed, sentLogMessage);
+									if(cause2 != null)
+										embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause2 + ".");
+									else embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.");
+								}
+							}
+							else {
+								Discord.errorLog("NumberFormatException", "Invalid Parameter", cause, Arrays.toString(nfe.getStackTrace()), logEmbed, sentLogMessage);
+								embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause + ".");
 							}
 						}
-						break;
+					}
+					break;
+					
+				case "japanese":
+				case "chinese":
+					CHINESE: if(content.length >= 2) {
+						boolean japanese = content[0].equals("japanese");
+						try {
+							long num = Long.parseLong(content[1].replaceAll(",", ""));
+							embed = new EmbedBuilder().setAuthor("Arabic to Chinese Numerals").setDescription(content[1] + " = \n" + Conversion.longToChinese(num, japanese));
+							if(japanese)
+								embed.setAuthor("Arabic to Japanese Numerals");
+						} catch(NumberFormatException nfe) {
+							String cause = nfe.getMessage();
+							if(cause == null || !(cause.contains("cannot") || cause.contains("less than"))) {
+								try {
+									double value = Double.parseDouble(content[1].replaceAll(",", ""));
+									if(value > Long.MAX_VALUE)
+										embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Numbers greater than 9,223,372,036,854,775,807 are not supported.");
+									else if(value < Long.MIN_VALUE)
+										embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Numbers less than -9,223,372,036,854,775,808 are not supported.");
+									else embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: Decimal conversion is not supported.");
+									break CHINESE;
+								} catch(NumberFormatException nfe2) {}
+								try {
+									embed = new EmbedBuilder().setAuthor("Chinese to Arabic Numerals").setDescription(content[1] + " = \n" + Conversion.chineseToLong(content[1]));
+									if(japanese)
+										embed.setAuthor("Japanese to Arabic Numerals");
+								} catch(NumberFormatException nfe2) {
+									String cause2 = nfe2.getMessage();
+									Discord.errorLog("NumberFormatException", "Invalid Parameter", cause2, Arrays.toString(nfe2.getStackTrace()), logEmbed, sentLogMessage);
+									if(cause2 != null)
+										embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause2 + ".");
+									else embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.");
+								}
+							}
+							else {
+								Discord.errorLog("NumberFormatException", "Invalid Parameter", cause, Arrays.toString(nfe.getStackTrace()), logEmbed, sentLogMessage);
+								embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.\nReason: " + cause + ".");
+							}
+						}
+					}
+					break;
+				
+				case "english": //TODO
+					break;
+					
+				case "remind":
+					if(content.length >= 5) {
+						long userID = e.getMessageAuthor().getId();
+						long creationChannelID = e.getMessage().getChannel().getId();
+						long creationStamp = e.getMessage().getCreationTimestamp().toEpochMilli();
+						
+						//destination
+						long destination = -1;
+						if(content[1].equals("me"))
+							destination = 0;
+						else if(content[1].equals("here"))
+							destination = 1;
+						else if(isNumeric(content[1]))
+							//TODO handle errors
+							destination = Long.parseLong(content[1]);
+						else if(content[1].startsWith("<#"))
+							//TODO handle errors
+							destination = Long.parseLong(content[1].substring(2, content[1].length() - 1));
+						else {
+							//TODO handle errors
+							destination = e.getServer().get().getChannelsByName(content[1]).get(0).getId();
+						}
+						
+						//message
+						String reminderMessage = new String();
+						//if(e.getMessageContent().lastIndexOf("in") > 0)
+						//TODO error logging
+						reminderMessage = e.getMessageContent().substring(e.getMessageContent().indexOf(content[2]), e.getMessageContent().lastIndexOf("in"));
+						
+						//time
+						long executionStamp = System.currentTimeMillis();
+						String timeStr = e.getMessageContent().toLowerCase().substring(e.getMessageContent().lastIndexOf("in") + 3).trim();
+						
+						if(timeStr.contains("w")) {
+							int weeks = Integer.parseInt(timeStr.substring(0, timeStr.indexOf("w")));
+							timeStr = timeStr.substring(timeStr.indexOf("w") + 1);
+							executionStamp += weeks * 604800000;
+						}
+						
+						if(timeStr.contains("d")) {
+							int days = Integer.parseInt(timeStr.substring(0, timeStr.indexOf("d")));
+							timeStr = timeStr.substring(timeStr.indexOf("d") + 1);
+							executionStamp += days * 86400000;
+						}
+						
+						if(timeStr.contains("h")) {
+							int hours = Integer.parseInt(timeStr.substring(0, timeStr.indexOf("h")));
+							timeStr = timeStr.substring(timeStr.indexOf("h") + 1);
+							executionStamp += hours * 3600000;
+						}
+						
+						if(timeStr.contains("m")) {
+							int minutes = Integer.parseInt(timeStr.substring(0, timeStr.indexOf("m")));
+							timeStr = timeStr.substring(timeStr.indexOf("m") + 1);
+							executionStamp += minutes * 60000;
+						}
+						
+						if(timeStr.contains("s")) {
+							int secs = Integer.parseInt(timeStr.substring(0, timeStr.indexOf("s")));
+							timeStr = timeStr.substring(timeStr.indexOf("s") + 1);
+							executionStamp += secs * 1000;
+						}
+						
+						embed = Discord.scheduleReminder(destination, reminderMessage, executionStamp, userID, creationChannelID, creationStamp);
+					}
+					break;
+				
+				case "test":
+					embed = new EmbedBuilder().setDescription("❘M\u0305❘  |M\u0305| │\u0305M\u0305│\u0305 │M\u0305│" + Conversion.numberToEnglish(BigDecimalMath.toBigDecimal(content[1])));
+					break;
+					
+				default:
+					if(content.length >= 1) {
+						try {
+							StringBuilder work = new StringBuilder(content[0]);
+							for(int i = 1; i < content.length; i++)
+								work.append(" " + content[i]);
+							
+							long t = System.currentTimeMillis();
+							BigDecimal result = solve(new String(work).replaceAll("\\s",""), t);
+							time = System.currentTimeMillis() - t;
+							work.append(" =\n");
+							
+							String description;
+							try {
+								description = new String(work) + result.toBigIntegerExact();
+								if(description.length() > 1024) {
+									throw new ArithmeticException("Too long");
+								}
+							} catch(ArithmeticException ae) {
+								description = new String(work) + toScientificString(result.toString());
+								if(description.length() > 1024) {
+									description = new String(work) + toScientificString(format(result, 16));
+								}
+							}
+							embed = new EmbedBuilder().setAuthor("Solve").setDescription(description);
+							
+						} catch(StringIndexOutOfBoundsException sioobe) {
+							String cause = sioobe.getMessage();
+							Discord.errorLog("StringIndexOutOfBoundsException", "Unmatched Grouping", cause, Arrays.toString(sioobe.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed =new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Unmatched Grouping").setDescription("Your command has one or more unmatched groupings.");
+						
+						} catch(NullPointerException npe) {
+							String cause = npe.getMessage();
+							Discord.errorLog("NullPointerException", "Mising Values", cause, Arrays.toString(npe.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Missing Values").setDescription("Your command is missing one more expected values.");
+						
+						} catch(ArithmeticException ae) {
+							String cause =  ae.getMessage();
+							Discord.errorLog("ArithmeticException", "Incalculable Arithmetic", cause, Arrays.toString(ae.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Incalculable Arithmetic").setDescription("The operation was interrupted because an incalculable exception was encountered." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Incalculable Arithmetic").setDescription("The operation was interrupted because an incalculable exception was encountered.");
+						
+						} catch(NumberFormatException nfe) {
+							Discord.errorLog("NumberFormatException", "Invalid Parameter", nfe.getMessage(), Arrays.toString(nfe.getStackTrace()), logEmbed, sentLogMessage);
+							embed = new EmbedBuilder().setAuthor("Invalid Parameter").setDescription("One or more of your parameters were incompatible with the requested command.");
+						
+						} catch(TimeoutException te) {
+							String cause = te.getMessage();
+							Discord.errorLog("TimeoutException", "Timeout", cause, Arrays.toString(te.getStackTrace()), logEmbed, sentLogMessage);
+							if(cause != null) {
+								cause = "\nReason: " + cause + ".";
+								embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process." + cause);
+							} else embed = new EmbedBuilder().setAuthor("Timeout").setDescription("Your request was aborted because it took too long to process.");
+						}
+					}
+					break;
 				}
+			
 			if(time >= 0)
 				e.getChannel().sendMessage(embed.setFooter("Response for " + e.getMessageAuthor().getDisplayName() + " found in " + time + " ms").setColor(BLUE));
 			else e.getChannel().sendMessage(embed.setFooter("Response for " + e.getMessageAuthor().getDisplayName()).setColor(BLUE));
+			
+			Discord.getAPI().updateStatus(UserStatus.ONLINE);
 		}
+	}
+
+	private boolean isNumeric(String str) { 
+		try {  
+			Long.parseLong(str);  
+			return true;
+		} catch(NumberFormatException e){  
+			return false;  
+		}  
 	}
 
 	private BigDecimal solve(String s, long time) throws StringIndexOutOfBoundsException, NullPointerException, TimeoutException {
@@ -412,7 +547,7 @@ public class Commands implements MessageCreateListener {
 		if(s.length() == 0)
 			throw new NullPointerException(); //is missing value
 		
-		System.out.println(System.currentTimeMillis() - time + ": Start " + s);
+		//System.out.println(System.currentTimeMillis() - time + ": Start " + s);
 		
 		if(s.contains("[") || s.contains("]")) {
 			if(!s.contains("["))
@@ -860,8 +995,40 @@ public class Commands implements MessageCreateListener {
 			} else s = s.substring(0, start) + "(" + (Z = solve(s.substring(start + 5, end), time)).toPlainString() + ")" + s.substring(end + 1);
 		}
 		
-		System.out.println(System.currentTimeMillis() - time + ": Functions resolved " + s);
-				
+		//System.out.println(System.currentTimeMillis() - time + ": Functions resolved " + s);
+		
+		while(Conversion.containsHanScript(s)) {
+			int start = 0;
+			for(int i = 0; i < s.length();) {
+				int index = i;
+				int codepoint = s.codePointAt(i);
+				i += Character.charCount(codepoint);
+				if(Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN) {
+					start = index;
+					break;
+				}
+			}
+			
+			int end = s.length();
+			for(int i = start; i < s.length();) {
+				int index = i;
+				int codepoint = s.codePointAt(i);
+				i += Character.charCount(codepoint);
+				if(Character.UnicodeScript.of(codepoint) != Character.UnicodeScript.HAN) {
+					end = index;
+					break;
+				}
+			}
+			
+			if(start == 0) {
+				if(end == s.length()) {
+					return BigDecimal.valueOf(Conversion.chineseToLong(s));
+				} else s = "(" + Conversion.chineseToLong(s.substring(0, end)) + ")" + s.substring(end);
+			} else if(end == s.length()) {
+				s = s.substring(0, start) + "(" + Conversion.chineseToLong(s.substring(start)) + ")";
+			} else s = s.substring(0, start) + "(" + Conversion.chineseToLong(s.substring(start, end)) + ")" + s.substring(end);
+		}
+		
 		//replace constants
 		s = s.toLowerCase();
 		if(s.contains("δ"))
@@ -886,6 +1053,10 @@ public class Commands implements MessageCreateListener {
 			s = s.replaceAll("φ", "(" + PHI.toPlainString() + ")");
 		if(s.contains("phi"))
 			s = s.replaceAll("phi", "(" + PHI.toPlainString() + ")");
+		if(s.contains("n"))
+			s = s.replaceAll("n", "(" + AVOGADRO.toPlainString() + ")");
+		if(s.contains("h"))
+			s = s.replaceAll("h", "(" + PLANCK.toPlainString() + ")");
 		
 		//replace variables
 		if(s.contains("x"))
@@ -895,7 +1066,7 @@ public class Commands implements MessageCreateListener {
 		if(s.contains("z"))
 			s = s.replaceAll("z", "(" + Z.toPlainString() + ")");
 		
-		System.out.println(System.currentTimeMillis() - time + ": Constants substituted " + s);
+		//System.out.println(System.currentTimeMillis() - time + ": Constants substituted " + s);
 		
 		while(s.contains("|")) {
 			int start = s.indexOf("|"), end = -1;
@@ -939,30 +1110,6 @@ public class Commands implements MessageCreateListener {
 			}
 			if(end == -1)
 				throw new StringIndexOutOfBoundsException("Unmatched parentheses, missing end brace"); //is missing an end brace
-		/*	
-			int leftCase = -1;	//something else to left
-			if(start == 0)		//nothing to left
-				leftCase = 0;
-			else {
-				char c = s.charAt(start - 1);
-				if(Character.isDigit(c))	//number to left
-					leftCase = 1;
-				else if(c == '√')	//sqrt to left
-					leftCase = 2;
-			}
-			
-			int rightCase = -1;	//soemthing else to right
-			if(end == s.length() - 1) //nothing to right
-				rightCase = 0;
-			else {
-				char c = s.charAt(end + 1);
-				if(Character.isDigit(c))	//number to right
-					rightCase = 1;
-				else if(c == '^')	//power to right
-					rightCase = 2;
-			}
-			*/
-			//TODO maybe redo parentheses logic
 			
 			//nothing to left
 			if(start == 0) { 
@@ -1002,7 +1149,7 @@ public class Commands implements MessageCreateListener {
 			
 		}
 		
-		System.out.println(System.currentTimeMillis() - time + ": Parentheses resolved " + s);
+		//System.out.println(System.currentTimeMillis() - time + ": Parentheses resolved " + s);
 		
 		while(s.contains("!")) { //only valid for non-negative integers
 			int index = s.indexOf('!');
@@ -1172,41 +1319,33 @@ public class Commands implements MessageCreateListener {
 				throw new ArithmeticException("0^0 is indeterminate");
 			}
 				
-					//parse the right parameter
+					// parse the right parameter
 			if(leftIndex == 0) {
 				if(rightIndex == s.length() - 1) {
 					if(integer) {
-						//System.out.println(1);
 						return a.pow(c);
 					} else {
-						//System.out.println(2);
 						return DefaultBigDecimalMath.pow(a, b);
 					}
 				} else if(integer) {
-					//System.out.println(3);
 					s = a.pow(c).toPlainString() + s.substring(rightIndex + 1);
 				} else {
-					//System.out.println(4);
 					s = DefaultBigDecimalMath.pow(a, b).toPlainString() + s.substring(rightIndex + 1);
 				}
 			} else if(rightIndex == s.length() - 1) {
 				if(integer) {
-					//System.out.println(5);
 					s = s.substring(0, leftIndex) + a.pow(c).toPlainString();
 				} else {
-					//System.out.println(6);
 					s = s.substring(0, leftIndex) + DefaultBigDecimalMath.pow(a, b).toPlainString();
 				}
 			} else if(integer) {
-				//System.out.println(7);
 				s = s.substring(0, leftIndex) + a.pow(c).toPlainString() + s.substring(rightIndex + 1);
 			} else {
-				//System.out.println(8);
 				s = s.substring(0, leftIndex) + DefaultBigDecimalMath.pow(a, b).toPlainString() + s.substring(rightIndex + 1);
 			}
 		}
 		
-		System.out.println(System.currentTimeMillis() - time + ": Exponents resolved " + s);
+		//System.out.println(System.currentTimeMillis() - time + ": Exponents resolved " + s);
 		
 		
 		if(s.contains("+-"))
@@ -1228,8 +1367,6 @@ public class Commands implements MessageCreateListener {
 		//work left to right solving multiplication and division
 		while(s.contains("*") || s.contains("/") || s.contains("%")) {
 			String[] entities = s.split("(?<=[-+*/%])|(?=[-+*/%])");
-			//if(entities.length < 3)
-			//	throw new NullPointerException();
 			boolean twoForward = false;
 			int i = 0;
 			for(; i < entities.length; i++)
@@ -1290,7 +1427,7 @@ public class Commands implements MessageCreateListener {
 			s = newS.toString();
 		}
 		
-		System.out.println(System.currentTimeMillis() - time + ": Multiplication resolved " + s);
+		//System.out.println(System.currentTimeMillis() - time + ": Multiplication resolved " + s);
 		
 		//work left to right solving addition and subtraction
 		
@@ -1347,7 +1484,7 @@ public class Commands implements MessageCreateListener {
 			}
 		}
 		
-		System.out.println(System.currentTimeMillis() - time + ": Addition resolved " + s);
+		//System.out.println(System.currentTimeMillis() - time + ": Addition resolved " + s);
 		
 		return BigDecimalMath.toBigDecimal(s);
 	}
