@@ -24,5 +24,8 @@ Her dependencies include:
 ## Support Development
 If you'd like to support the developer, consider making a one-time donation via [PayPal](https://paypal.me/nes370) or become a patron at [Patreon](https://www.patreon.com/nes370).
 
-## Contact
-If you wish to add this bot to your server, please contact Nes#9856 on Discord.
+## Invite/Contact
+If you wish to add this bot to your server, please use the following link:
+https://discordapp.com/api/oauth2/authorize?client_id=482545118172282880&permissions=0&scope=bot
+
+If you have any further queries, please contact Nes#9856 on Discord.
